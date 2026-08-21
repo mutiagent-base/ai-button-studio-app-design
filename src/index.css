@@ -1,0 +1,135 @@
+@import "tailwindcss";
+
+:root {
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  --font-mono: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  /* Design Token Defaults */
+  --btn-primary-hue: 210;
+  --btn-accent-color: #0284c7;
+  --btn-radius: 9999px;
+  --border-thickness: 2px;
+  --rgb-duration: 4s;
+  --shadow-intensity: 0.45;
+  --btn-bg-dark: #12141a;
+  --btn-bg-surface: #1e222d;
+}
+
+body {
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+}
+
+code, pre, .font-mono {
+  font-family: var(--font-mono);
+}
+
+/* RGB Conic Gradient Running Border Animation */
+@keyframes rotate-border {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Shake keyframe animation for Error State */
+@keyframes button-error-shake {
+  0%, 100% { transform: translateX(0); }
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
+}
+
+/* Success Pulse */
+@keyframes button-success-pop {
+  0% { transform: scale(0.96); }
+  50% { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+
+.animate-shake {
+  animation: button-error-shake 0.45s ease-in-out;
+}
+
+.animate-success-pop {
+  animation: button-success-pop 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* Living RGB Border Implementation per Specification Section 3.3.B */
+.living-btn-rgb {
+  position: relative;
+  background: var(--btn-bg-dark, #12141a);
+  color: #ffffff;
+  border: none;
+  border-radius: var(--btn-radius, 9999px);
+  overflow: hidden;
+  z-index: 1;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.living-btn-rgb::before {
+  content: '';
+  position: absolute;
+  top: -60%;
+  left: -60%;
+  width: 220%;
+  height: 220%;
+  background: conic-gradient(
+    #ff0055, #fe9000, #fff020, #3edf4b, #3363ff, #b102b7, #ff0055
+  );
+  animation: rotate-border var(--rgb-duration, 4s) linear infinite;
+  z-index: -2;
+  transition: animation-duration 0.3s ease;
+}
+
+.living-btn-rgb::after {
+  content: '';
+  position: absolute;
+  inset: var(--border-thickness, 2px);
+  background: var(--btn-bg-surface, #1e222d);
+  border-radius: calc(var(--btn-radius, 9999px) - var(--border-thickness, 2px));
+  z-index: -1;
+  transition: background-color 0.2s ease;
+}
+
+.living-btn-rgb:hover {
+  --rgb-duration: 0.8s;
+}
+
+.living-btn-rgb:active {
+  filter: brightness(1.35);
+}
+
+/* Respect Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  .living-btn-rgb::before {
+    animation: none !important;
+  }
+  .animate-shake {
+    animation: none !important;
+  }
+  .animate-success-pop {
+    animation: none !important;
+  }
+  * {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+/* Custom Scrollbar for IDE panels */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.6);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(71, 85, 105, 0.5);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.8);
+}
