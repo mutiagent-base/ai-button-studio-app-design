@@ -64,6 +64,29 @@ This delivers an organic, physically floating tactile feedback in 3D space.`,
 /* Credit: [Author] under [License] */
 Preserving developer rights and providing open-source transparency.`,
     },
+    {
+      id: 'curves',
+      title: '7. Animation Curves & Kinetic Tokens',
+      tag: 'Animation',
+      content: `Selectable kinetic curve presets mapped to CSS --btn-transition-timing:
+• Springy: cubic-bezier(0.34, 1.56, 0.64, 1) [Overshoot rebound]
+• Ease-In-Out: cubic-bezier(0.4, 0, 0.2, 1) [Symmetric fluid]
+• Snappy: cubic-bezier(0.16, 1, 0.3, 1) [High-speed braking]
+• Linear: linear [Uniform velocity]
+• Smooth: cubic-bezier(0.25, 0.1, 0.25, 1) [Refined gentle]`,
+    },
+    {
+      id: 'collections',
+      title: '8. Preset Collections & Scoped Categories',
+      tag: 'Tokens',
+      content: `Categorized design token suites, UI tags, and custom user presets:
+• Personal (👤): Private user preferences (e.g. Minimal Quartz, Clean Daylight, and custom setups).
+• Project-Specific (💼): Specialized UI themes (e.g. Cyberpunk Neon for gaming, Emerald Matrix for devops).
+• Shared (🌐): Standardized design systems & community tokens (e.g. Kinetic Bouncy, Sunset Radiance).
+• UI Intent Tags (🏷️): Categorize presets with UI tags (Primary, Destructive, Utility, Hero / CTA, Subtle) and toggle visibility by tag.
+• Palette Auto-Tag Intelligence (✨): Dynamically calculates WCAG contrast ratios, hue spectrums, and saturation levels to recommend suitable UI intent categories (e.g., Crimson 345° -> Destructive, Azure 210° with 7.8:1 contrast -> Primary, Emerald 145° -> Utility).
+• Hover Thumbnail Preview: Hover over any preset card or name to inspect a miniature live-rendered button exhibiting that collection's border radius, spinning conic RGB border duration, shadow factor, contrast score, and animation curve in real time.`,
+    },
   ];
 
   const filtered = sections.filter(

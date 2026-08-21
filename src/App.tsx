@@ -48,6 +48,8 @@ export const App: React.FC = () => {
     borderThickness: 2,
     rgbDuration: 4,
     shadowIntensity: 0.45,
+    timingPreset: 'springy',
+    transitionTiming: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
     reducedMotion: false,
     themeMode: 'dark',
   });

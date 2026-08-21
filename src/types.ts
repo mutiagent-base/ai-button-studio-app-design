@@ -57,6 +57,8 @@ export interface AIButtonStudioComponent {
   attribution: AttributionConfig;
 }
 
+export type AnimationCurvePreset = 'springy' | 'linear' | 'ease-in-out' | 'snappy' | 'smooth';
+
 export interface DesignTokens {
   primaryHue: number;
   accentColor: string;
@@ -64,8 +66,25 @@ export interface DesignTokens {
   borderThickness: number; // in px (1-8)
   rgbDuration: number; // in seconds (0.5 to 10)
   shadowIntensity: number; // 0.1 to 1.0
+  timingPreset: AnimationCurvePreset;
+  transitionTiming: string; // mapped to --btn-transition-timing CSS token
   reducedMotion: boolean;
   themeMode: 'dark' | 'light';
+}
+
+export type PresetCategory = 'personal' | 'project' | 'shared';
+
+export type PresetUITag = 'Primary' | 'Destructive' | 'Utility' | 'Hero / CTA' | 'Subtle';
+
+export interface TokenPresetCollection {
+  id: string;
+  name: string;
+  description: string;
+  category: PresetCategory;
+  uiTags?: PresetUITag[];
+  isCustom?: boolean;
+  badge?: string;
+  tokens: DesignTokens;
 }
 
 export interface AuditLog {

@@ -233,7 +233,10 @@ export const LivingButton: React.FC<LivingButtonProps> = ({
           borderRadius: borderRadiusStyle,
           ['--rgb-duration' as any]: currentState === 'hover' ? '0.8s' : `${tokens.rgbDuration}s`,
           ['--border-thickness' as any]: `${tokens.borderThickness}px`,
+          ['--shadow-intensity' as any]: `${tokens.shadowIntensity}`,
           ['--btn-radius' as any]: borderRadiusStyle,
+          ['--btn-transition-timing' as any]: tokens.transitionTiming || 'cubic-bezier(0.34, 1.56, 0.64, 1)',
+          transitionTimingFunction: tokens.transitionTiming || 'cubic-bezier(0.34, 1.56, 0.64, 1)',
         }}
       >
         {/* Ripple elements */}

@@ -105,6 +105,8 @@ export const ${toPascalCase(component.content.label || 'LivingButton')}: React.F
         \${className}\`}
       style={{
         borderRadius: '${tokens.borderRadius === 9999 ? '9999px' : `${tokens.borderRadius}px`}',
+        ['--btn-transition-timing' as any]: '${tokens.transitionTiming}',
+        transitionTimingFunction: '${tokens.transitionTiming}',
       }}
     >
       {state === 'loading' ? (
@@ -150,6 +152,8 @@ export function generateHtmlCssCode(component: AIButtonStudioComponent, tokens: 
   --btn-radius: ${tokens.borderRadius === 9999 ? '9999px' : `${tokens.borderRadius}px`};
   --border-thickness: ${tokens.borderThickness}px;
   --rgb-duration: ${tokens.rgbDuration}s;
+  --shadow-intensity: ${tokens.shadowIntensity};
+  --btn-transition-timing: ${tokens.transitionTiming};
 }
 
 .living-btn {
@@ -168,7 +172,7 @@ export function generateHtmlCssCode(component: AIButtonStudioComponent, tokens: 
   border: 1px solid rgba(255, 255, 255, 0.15);
   cursor: pointer;
   outline: none;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.25s var(--btn-transition-timing, cubic-bezier(0.4, 0, 0.2, 1));
 }
 
 ${isRGB ? `/* RGB Conic Gradient Implementation */
@@ -273,11 +277,12 @@ const handleClick = async () => {
 <style scoped>
 .living-btn {
   padding: 12px 24px;
-  border-radius: ${tokens.borderRadius}px;
+  border-radius: ${tokens.borderRadius === 9999 ? '9999px' : `${tokens.borderRadius}px`};
   background: #0f172a;
   color: #ffffff;
   font-weight: 600;
   cursor: pointer;
+  transition: all 0.25s ${tokens.transitionTiming};
 }
 </style>
 `;
