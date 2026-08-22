@@ -1,0 +1,6 @@
+{
+  "name": "AI Button Studio",
+  "description": "The Living Playground & Developer Hub for prompt-driven interactive buttons with 6-state machines, JSON IR compiler, real-time dynamic shadow physics, RGB boundary animations, and accessibility audits.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

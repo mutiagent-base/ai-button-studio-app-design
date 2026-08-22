@@ -21,6 +21,11 @@ import {
   Eye,
   Info,
   Zap,
+  GripVertical,
+  ChevronLeft,
+  ChevronRight,
+  RotateCcw,
+  Move,
 } from 'lucide-react';
 import {
   DesignTokens,
@@ -233,6 +238,7 @@ const MiniPresetThumbnail: React.FC<MiniPresetThumbnailProps> = ({ preset }) => 
 };
 
 const STORAGE_KEY = 'ai_button_studio_custom_token_presets';
+const PRESET_ORDER_STORAGE_KEY = 'ai_button_studio_preset_order_v2';
 
 export interface DesignTokenEditorProps {
   tokens: DesignTokens;
@@ -276,6 +282,20 @@ export const DesignTokenEditor: React.FC<DesignTokenEditorProps> = ({
     }
   });
 
+  // Custom Preset Order state (for drag-and-drop & visual reordering)
+  const [presetOrder, setPresetOrder] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem(PRESET_ORDER_STORAGE_KEY);
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // Drag and drop state for presets
+  const [draggingPresetId, setDraggingPresetId] = useState<string | null>(null);
+  const [dragOverPresetId, setDragOverPresetId] = useState<string | null>(null);
+
   // Save dialog / form state
   const [isSavingPreset, setIsSavingPreset] = useState(false);
   const [presetNameInput, setPresetNameInput] = useState('');
@@ -299,9 +319,39 @@ export const DesignTokenEditor: React.FC<DesignTokenEditorProps> = ({
     }
   }, [customPresets]);
 
+  // Persist custom preset ordering
+  useEffect(() => {
+    try {
+      if (presetOrder.length > 0) {
+        localStorage.setItem(PRESET_ORDER_STORAGE_KEY, JSON.stringify(presetOrder));
+      } else {
+        localStorage.removeItem(PRESET_ORDER_STORAGE_KEY);
+      }
+    } catch (e) {
+      console.error('Failed to persist preset order to localStorage', e);
+    }
+  }, [presetOrder]);
+
   const allPresets = useMemo(() => {
-    return [...DEFAULT_TOKEN_PRESETS, ...customPresets];
-  }, [customPresets]);
+    const base = [...DEFAULT_TOKEN_PRESETS, ...customPresets];
+    if (presetOrder.length === 0) return base;
+
+    const ordered: TokenPresetCollection[] = [];
+    const map = new Map<string, TokenPresetCollection>();
+    base.forEach(p => map.set(p.id, p));
+
+    presetOrder.forEach(id => {
+      const item = map.get(id);
+      if (item) {
+        ordered.push(item);
+        map.delete(id);
+      }
+    });
+
+    // Append newly added or non-ordered presets at the end
+    map.forEach(item => ordered.push(item));
+    return ordered;
+  }, [customPresets, presetOrder]);
 
   // Counts by category
   const categoryCounts = useMemo(() => {
@@ -355,6 +405,79 @@ export const DesignTokenEditor: React.FC<DesignTokenEditorProps> = ({
       return true;
     });
   }, [allPresets, selectedCategory, selectedTags]);
+
+  // Reorder preset with arrows
+  const handleMovePreset = (presetId: string, direction: 'prev' | 'next', e: React.MouseEvent) => {
+    e.stopPropagation();
+    const currentList = filteredPresets;
+    const currentIndex = currentList.findIndex(p => p.id === presetId);
+    if (currentIndex === -1) return;
+
+    const targetIndex = direction === 'prev' ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= currentList.length) return;
+
+    const targetPresetId = currentList[targetIndex].id;
+
+    // Apply move to global allPresets order
+    const allIds = allPresets.map(p => p.id);
+    const sourceIdx = allIds.indexOf(presetId);
+    const targetIdx = allIds.indexOf(targetPresetId);
+
+    if (sourceIdx !== -1 && targetIdx !== -1) {
+      const newIds = [...allIds];
+      const [moved] = newIds.splice(sourceIdx, 1);
+      newIds.splice(targetIdx, 0, moved);
+      setPresetOrder(newIds);
+    }
+  };
+
+  // Drag and Drop handlers for presets
+  const handleDragStartPreset = (e: React.DragEvent, id: string) => {
+    e.dataTransfer.setData('text/plain', id);
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggingPresetId(id);
+  };
+
+  const handleDragOverPreset = (e: React.DragEvent, id: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (dragOverPresetId !== id) {
+      setDragOverPresetId(id);
+    }
+  };
+
+  const handleDropPreset = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    const sourceId = e.dataTransfer.getData('text/plain') || draggingPresetId;
+    setDraggingPresetId(null);
+    setDragOverPresetId(null);
+
+    if (!sourceId || sourceId === targetId) return;
+
+    const allIds = allPresets.map(p => p.id);
+    const sourceIndex = allIds.indexOf(sourceId);
+    const targetIndex = allIds.indexOf(targetId);
+
+    if (sourceIndex !== -1 && targetIndex !== -1) {
+      const newIds = [...allIds];
+      const [moved] = newIds.splice(sourceIndex, 1);
+      newIds.splice(targetIndex, 0, moved);
+      setPresetOrder(newIds);
+    }
+  };
+
+  const handleDragEndPreset = () => {
+    setDraggingPresetId(null);
+    setDragOverPresetId(null);
+  };
+
+  const handleResetPresetOrder = (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setPresetOrder([]);
+    try {
+      localStorage.removeItem(PRESET_ORDER_STORAGE_KEY);
+    } catch {}
+  };
 
   // Toggle tag filter
   const handleToggleTagFilter = (tag: PresetUITag) => {
@@ -591,22 +714,44 @@ export const DesignTokenEditor: React.FC<DesignTokenEditorProps> = ({
 
       {/* PRESET COLLECTIONS SECTION */}
       <div className="pt-2 border-t border-neutral-800/80 flex flex-col gap-2.5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            <Bookmark className="w-3.5 h-3.5 text-indigo-400" />
-            <span className="text-xs font-semibold text-neutral-200">
-              Preset Collections
-            </span>
+        <div className="flex items-center justify-between flex-wrap gap-1.5">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5">
+              <Bookmark className="w-3.5 h-3.5 text-indigo-400" />
+              <span className="text-xs font-semibold text-neutral-200">
+                Preset Collections
+              </span>
+            </div>
+
+            {presetOrder.length > 0 && (
+              <span className="text-[9px] px-1.5 py-0.2 rounded font-mono bg-amber-950/80 text-amber-300 border border-amber-500/30 font-medium">
+                Custom Order
+              </span>
+            )}
           </div>
 
-          <button
-            type="button"
-            onClick={() => (isSavingPreset ? setIsSavingPreset(false) : handleOpenSaveDialog())}
-            className="px-2 py-0.5 rounded-md bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-500/40 text-[10px] font-semibold flex items-center gap-1 transition-all"
-          >
-            <Plus className="w-3 h-3" />
-            <span>{isSavingPreset ? 'Cancel' : 'Save Current'}</span>
-          </button>
+          <div className="flex items-center gap-1.5">
+            {presetOrder.length > 0 && (
+              <button
+                type="button"
+                onClick={handleResetPresetOrder}
+                title="Reset presets to default sequence"
+                className="px-2 py-0.5 rounded bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-amber-300 text-[10px] font-medium flex items-center gap-1 transition-colors border border-neutral-700/60"
+              >
+                <RotateCcw className="w-2.5 h-2.5" />
+                <span>Reset Order</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => (isSavingPreset ? setIsSavingPreset(false) : handleOpenSaveDialog())}
+              className="px-2 py-0.5 rounded-md bg-indigo-950/80 hover:bg-indigo-900 text-indigo-300 border border-indigo-500/40 text-[10px] font-semibold flex items-center gap-1 transition-all"
+            >
+              <Plus className="w-3 h-3" />
+              <span>{isSavingPreset ? 'Cancel' : 'Save Current'}</span>
+            </button>
+          </div>
         </div>
 
         {/* 1. Category Filter Tabs */}
@@ -908,18 +1053,29 @@ export const DesignTokenEditor: React.FC<DesignTokenEditorProps> = ({
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 relative">
-            {filteredPresets.map(preset => {
+            {filteredPresets.map((preset, pIdx) => {
               const isSelected = currentMatchedPresetId === preset.id;
               const catBadge = getCategoryBadge(preset.category);
+              const isFirst = pIdx === 0;
+              const isLast = pIdx === filteredPresets.length - 1;
+              const isDragging = draggingPresetId === preset.id;
+              const isDragOver = dragOverPresetId === preset.id && draggingPresetId !== preset.id;
 
               return (
                 <div
                   key={preset.id}
+                  draggable
+                  onDragStart={e => handleDragStartPreset(e, preset.id)}
+                  onDragOver={e => handleDragOverPreset(e, preset.id)}
+                  onDrop={e => handleDropPreset(e, preset.id)}
+                  onDragEnd={handleDragEndPreset}
                   onClick={() => handleLoadPreset(preset)}
                   className={`p-2.5 rounded-lg text-left transition-all border flex flex-col justify-between gap-2 cursor-pointer relative group hover:z-30 ${
                     isSelected
                       ? 'bg-indigo-950/50 border-indigo-500/70 text-indigo-100 shadow-[0_0_12px_rgba(99,102,241,0.18)] ring-1 ring-indigo-500/40'
                       : 'bg-neutral-950/60 border-neutral-800/80 text-neutral-300 hover:text-white hover:border-neutral-700'
+                  } ${isDragging ? 'opacity-35 scale-95 border-dashed border-indigo-400' : ''} ${
+                    isDragOver ? 'ring-2 ring-amber-400/80 border-amber-400 bg-amber-950/40 scale-[1.02] shadow-lg shadow-amber-950/50' : ''
                   }`}
                 >
                   {/* Floating Live Button Thumbnail on Hover */}
@@ -931,6 +1087,11 @@ export const DesignTokenEditor: React.FC<DesignTokenEditorProps> = ({
 
                   <div className="flex items-center justify-between w-full gap-1">
                     <div className="flex items-center gap-1.5 min-w-0">
+                      {/* Drag Handle */}
+                      <span title="Drag to reorder preset" className="shrink-0 flex items-center">
+                        <GripVertical className="w-3 h-3 text-neutral-500 hover:text-neutral-300 cursor-grab active:cursor-grabbing -ml-1 opacity-40 group-hover:opacity-100 transition-opacity" />
+                      </span>
+
                       {/* Swatch indicator */}
                       <span
                         className="w-2 h-2 rounded-full shrink-0 shadow-sm"
@@ -941,8 +1102,30 @@ export const DesignTokenEditor: React.FC<DesignTokenEditorProps> = ({
                       </span>
                     </div>
 
-                    {/* Actions & Badges */}
+                    {/* Actions, Reorder Arrows & Badges */}
                     <div className="flex items-center gap-1 shrink-0">
+                      {/* Reorder Arrows */}
+                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity bg-neutral-900/90 rounded border border-neutral-800/80 p-0.5">
+                        <button
+                          type="button"
+                          disabled={isFirst}
+                          onClick={e => handleMovePreset(preset.id, 'prev', e)}
+                          title="Move preset earlier (left)"
+                          className="p-0.5 rounded hover:bg-neutral-800 disabled:opacity-20 disabled:hover:bg-transparent text-neutral-400 hover:text-cyan-300 transition-colors"
+                        >
+                          <ChevronLeft className="w-2.5 h-2.5" />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isLast}
+                          onClick={e => handleMovePreset(preset.id, 'next', e)}
+                          title="Move preset later (right)"
+                          className="p-0.5 rounded hover:bg-neutral-800 disabled:opacity-20 disabled:hover:bg-transparent text-neutral-400 hover:text-cyan-300 transition-colors"
+                        >
+                          <ChevronRight className="w-2.5 h-2.5" />
+                        </button>
+                      </div>
+
                       {preset.isCustom && (
                         <button
                           type="button"

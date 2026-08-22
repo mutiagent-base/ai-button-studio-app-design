@@ -13,6 +13,7 @@ import {
   CheckCircle,
   HelpCircle,
   Maximize2,
+  Keyboard,
 } from 'lucide-react';
 import {
   AIButtonStudioComponent,
@@ -33,6 +34,7 @@ import { CodeExporter } from './components/CodeExporter';
 import { DocWiki } from './components/DocWiki';
 import { AuditTerminal } from './components/AuditTerminal';
 import { ActionModals } from './components/ActionModals';
+import { KeyboardShortcutsModal } from './components/KeyboardShortcutsModal';
 
 export const App: React.FC = () => {
   // 1. Core Component Collection State
@@ -57,7 +59,10 @@ export const App: React.FC = () => {
   // 3. Right Sidebar Tab State ('json' | 'code' | 'docs')
   const [activeRightTab, setActiveRightTab] = useState<'json' | 'code' | 'docs'>('json');
 
-  // 4. Audit Logs State
+  // 4. Keyboard Shortcuts Modal State
+  const [showShortcutsModal, setShowShortcutsModal] = useState<boolean>(false);
+
+  // 5. Audit Logs State
   const [logs, setLogs] = useState<AuditLog[]>([
     {
       id: 'init-1',
@@ -82,7 +87,7 @@ export const App: React.FC = () => {
     },
   ]);
 
-  // 5. Action Modal Trigger State
+  // 6. Action Modal Trigger State
   const [activeModal, setActiveModal] = useState<{
     type: string;
     target: string;
@@ -127,6 +132,12 @@ export const App: React.FC = () => {
     addLog('A11Y', `Audited ARIA label: "${parsed.accessibility.aria_label}"`, 'success');
   };
 
+  // Handle component reordering
+  const handleReorderComponents = (reordered: AIButtonStudioComponent[]) => {
+    setComponents(reordered);
+    addLog('ACTION', `Reordered component list (${reordered.map(c => c.content.label).join(' -> ')})`, 'info');
+  };
+
   // Cell click on the 16:9 grid canvas to move or place
   const handleCellClick = (gridId: string) => {
     const row = parseInt(gridId.charAt(1), 10);
@@ -150,7 +161,7 @@ export const App: React.FC = () => {
   };
 
   // Add new component
-  const handleAddNewComponent = () => {
+  const handleAddNewComponent = useCallback(() => {
     const newId = `btn-${Date.now().toString(36)}`;
     const newComp: AIButtonStudioComponent = {
       id: newId,
@@ -186,7 +197,24 @@ export const App: React.FC = () => {
     setComponents(prev => [...prev, newComp]);
     setActiveComponentId(newId);
     addLog('PARSER', `Created new component "${newComp.content.label}" [${newId}]`, 'success');
-  };
+  }, [components.length, addLog]);
+
+  // Duplicate active component
+  const handleDuplicateComponent = useCallback(() => {
+    if (!activeComponent) return;
+    const newId = `btn-${Date.now().toString(36)}`;
+    const duplicated: AIButtonStudioComponent = {
+      ...activeComponent,
+      id: newId,
+      content: {
+        ...activeComponent.content,
+        label: `${activeComponent.content.label} (Copy)`,
+      },
+    };
+    setComponents(prev => [...prev, duplicated]);
+    setActiveComponentId(newId);
+    addLog('PARSER', `Duplicated component "${duplicated.content.label}" [${newId}]`, 'success');
+  }, [activeComponent, addLog]);
 
   // Handle Action Trigger
   const handleTriggerAction = (actionType: string, target: string, component: AIButtonStudioComponent) => {
@@ -206,6 +234,166 @@ export const App: React.FC = () => {
     setActiveComponentId(updated.id);
     addLog('PARSER', `JSON IR synchronized: ${updated.id}`, 'success');
   };
+
+  // Execute shortcut actions from cheatsheet
+  const handleExecuteShortcutAction = useCallback(
+    (actionId: string) => {
+      switch (actionId) {
+        case 'focus_prompt': {
+          const el = document.querySelector('textarea, input[placeholder*="Describe"]') as HTMLInputElement | null;
+          el?.focus();
+          break;
+        }
+        case 'new_component':
+          handleAddNewComponent();
+          break;
+        case 'duplicate_component':
+          handleDuplicateComponent();
+          break;
+        case 'open_export':
+          setActiveRightTab('code');
+          break;
+        case 'open_json_ir':
+          setActiveRightTab('json');
+          break;
+        case 'open_docs':
+          setActiveRightTab('docs');
+          break;
+        case 'toggle_theme':
+          setTokens(t => ({ ...t, themeMode: t.themeMode === 'dark' ? 'light' : 'dark' }));
+          break;
+        case 'toggle_reduce_motion':
+          setTokens(t => ({ ...t, reducedMotion: !t.reducedMotion }));
+          break;
+        case 'cycle_state': {
+          const states: (ButtonStateType | null)[] = [null, 'hover', 'click', 'loading', 'disabled', 'success', 'error'];
+          setForcedState(curr => {
+            const nextIdx = (states.indexOf(curr) + 1) % states.length;
+            return states[nextIdx];
+          });
+          break;
+        }
+        case 'prev_component': {
+          const idx = components.findIndex(c => c.id === activeComponentId);
+          if (idx > 0) setActiveComponentId(components[idx - 1].id);
+          break;
+        }
+        case 'next_component': {
+          const idx = components.findIndex(c => c.id === activeComponentId);
+          if (idx < components.length - 1) setActiveComponentId(components[idx + 1].id);
+          break;
+        }
+      }
+    },
+    [components, activeComponentId, handleAddNewComponent, handleDuplicateComponent]
+  );
+
+  // Global Keyboard Shortcuts Event Listener
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
+      const isCtrlOrCmd = isMac ? e.metaKey : e.ctrlKey;
+      const target = e.target as HTMLElement | null;
+      const isInput = target && ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName);
+
+      // Escape key: close overlays
+      if (e.key === 'Escape') {
+        if (showShortcutsModal) {
+          setShowShortcutsModal(false);
+          e.preventDefault();
+        } else if (activeModal) {
+          setActiveModal(null);
+          e.preventDefault();
+        }
+        return;
+      }
+
+      // '?' key when not in an input field: open shortcuts
+      if (e.key === '?' && !isInput && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        e.preventDefault();
+        setShowShortcutsModal(prev => !prev);
+        return;
+      }
+
+      // Ctrl + / or Cmd + /: toggle shortcuts overlay
+      if (isCtrlOrCmd && e.key === '/') {
+        e.preventDefault();
+        setShowShortcutsModal(prev => !prev);
+        return;
+      }
+
+      // Ctrl + S or Cmd + S: Save design preset / state notification
+      if (isCtrlOrCmd && (e.key === 's' || e.key === 'S')) {
+        e.preventDefault();
+        addLog('STATE', 'Quick-saved active configuration & tokens state.', 'success');
+        return;
+      }
+
+      // Ctrl + E or Cmd + E: Open Code Exporter
+      if (isCtrlOrCmd && (e.key === 'e' || e.key === 'E')) {
+        e.preventDefault();
+        setActiveRightTab('code');
+        addLog('ACTION', 'Switched to Code Exporter view (Ctrl+E)', 'info');
+        return;
+      }
+
+      // Ctrl + N or Cmd + N: New Component (when not default browser shortcut or handled)
+      if (isCtrlOrCmd && (e.key === 'n' || e.key === 'N')) {
+        e.preventDefault();
+        handleAddNewComponent();
+        return;
+      }
+
+      // Ctrl + D or Cmd + D: Duplicate Component
+      if (isCtrlOrCmd && (e.key === 'd' || e.key === 'D')) {
+        e.preventDefault();
+        handleDuplicateComponent();
+        return;
+      }
+
+      // Ctrl + K or Cmd + K: Focus Prompt Input
+      if (isCtrlOrCmd && (e.key === 'k' || e.key === 'K')) {
+        e.preventDefault();
+        const el = document.querySelector('textarea, input[placeholder*="Describe"]') as HTMLInputElement | null;
+        el?.focus();
+        return;
+      }
+
+      // Ctrl + 1 / 2 / 3: Switch Sidebar View Tabs
+      if (isCtrlOrCmd && e.key === '1') {
+        e.preventDefault();
+        setActiveRightTab('json');
+      } else if (isCtrlOrCmd && e.key === '2') {
+        e.preventDefault();
+        setActiveRightTab('code');
+      } else if (isCtrlOrCmd && e.key === '3') {
+        e.preventDefault();
+        setActiveRightTab('docs');
+      }
+
+      // Alt + ArrowUp / ArrowDown: cycle component selection
+      if (e.altKey && e.key === 'ArrowUp') {
+        e.preventDefault();
+        const idx = components.findIndex(c => c.id === activeComponentId);
+        if (idx > 0) setActiveComponentId(components[idx - 1].id);
+      } else if (e.altKey && e.key === 'ArrowDown') {
+        e.preventDefault();
+        const idx = components.findIndex(c => c.id === activeComponentId);
+        if (idx < components.length - 1) setActiveComponentId(components[idx + 1].id);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    showShortcutsModal,
+    activeModal,
+    components,
+    activeComponentId,
+    handleAddNewComponent,
+    handleDuplicateComponent,
+    addLog,
+  ]);
 
   return (
     <div className={`min-h-screen bg-neutral-950 text-neutral-100 flex flex-col font-sans ${tokens.themeMode === 'light' ? 'theme-light' : ''}`}>
@@ -232,12 +420,26 @@ export const App: React.FC = () => {
           </div>
         </div>
 
-        {/* Global Controls */}
-        <div className="flex items-center gap-2.5">
+        {/* Global Controls & Shortcuts Trigger */}
+        <div className="flex items-center gap-2">
           <div className="hidden lg:flex items-center gap-2 px-2.5 py-1 rounded-full bg-neutral-900 border border-neutral-800 text-[11px] font-mono text-neutral-300">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             <span>JSON IR Compiler: ONLINE</span>
           </div>
+
+          {/* Keyboard Shortcuts Trigger Button */}
+          <button
+            type="button"
+            onClick={() => setShowShortcutsModal(true)}
+            className="px-2.5 py-1.5 rounded-lg bg-neutral-900 hover:bg-neutral-800 text-neutral-300 hover:text-cyan-300 border border-neutral-800 hover:border-neutral-700 text-xs font-medium flex items-center gap-1.5 transition-all shadow-sm"
+            title="Open Keyboard Shortcuts (Press '?' or 'Ctrl+/')"
+          >
+            <Keyboard className="w-3.5 h-3.5 text-cyan-400" />
+            <span className="hidden sm:inline">Shortcuts</span>
+            <kbd className="hidden md:inline-block px-1 py-0.2 rounded bg-neutral-800 text-neutral-400 text-[9px] font-mono border border-neutral-700">
+              ?
+            </kbd>
+          </button>
 
           <a
             href="https://github.com/mutiagent-base/ai-button-studio-app-design"
@@ -261,6 +463,7 @@ export const App: React.FC = () => {
             components={components}
             onSelectComponent={setActiveComponentId}
             onAddNewComponent={handleAddNewComponent}
+            onReorderComponents={handleReorderComponents}
           />
 
           <StateSimulationPanel
@@ -361,6 +564,8 @@ export const App: React.FC = () => {
             {activeRightTab === 'code' && (
               <CodeExporter
                 component={activeComponent}
+                components={components}
+                activeComponentId={activeComponentId}
                 tokens={tokens}
               />
             )}
@@ -383,7 +588,15 @@ export const App: React.FC = () => {
         activeModal={activeModal}
         onClose={() => setActiveModal(null)}
       />
+
+      {/* Global Keyboard Shortcuts Cheatsheet Modal */}
+      <KeyboardShortcutsModal
+        isOpen={showShortcutsModal}
+        onClose={() => setShowShortcutsModal(false)}
+        onExecuteAction={handleExecuteShortcutAction}
+      />
     </div>
   );
 };
+
 export default App;
